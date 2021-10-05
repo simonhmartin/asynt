@@ -1,12 +1,81 @@
+###############################################################################
+########################  single scaffold alignment plot  #####################
+###############################################################################
 # We need to import the functions in the asynt.R script.
-# This is equivalent to importing an R package, but in this case the
-# asynt.R script should be present in the same directore, or you can add the file path to the file name
 # You need to have the Intervals package installed on your system for this to work
 source("asynt.R")
+
+#if we have a single genomic region we are interested in, we can visualise the alignments more diretcly
+# We again import the alignment data, but now we subset by scaffold to just the 
+# reference and query sequences we are interested in.
+
+alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
+
+alignments <- subset(alignments, Rlen >= 100 & query=="contig30.1" & reference == "mxdp_29")
+
+#and make the plot
+par(mar = c(2,0,2,0))
+plot.alignments(alignments)
+
+#we can make the plot look a bit more fancy by using sigmoid lines
+plot.alignments(alignments, sigmoid=TRUE)
+
+#focus in on a specific region by setting the first and last base in the reference and query
+plot.alignments(alignments, sigmoid=TRUE, Rfirst=1500000, Rlast = 1800000, Qfirst=1850000, Qlast=2150000)
+
+
+###############################################################################
+######################  multiple scaffold alignment plot  #####################
+###############################################################################
+# We need to import the functions in the asynt.R script.
+# You need to have the Intervals package installed on your system for this to work
+source("asynt.R")
+
+# If we have multiple scaffolds making up a chromosome,
+# we can string them together, either automatically or manually
+
+#import alignments
+alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
+
+#Next we import load scaffold length data which is necessary to plot the scaffolds
+ref_data <- import.genome(fai_file="examples/dplex_mex.fa.fai")
+query_data <- import.genome(fai_file="examples/Dchry2.2.fa.fai")
+
+#now define the scaffolds we're interested in
+reference_scafs <- "mxdp_9"
+query_scafs <- c("contig4.1", "contig4.2")
+
+#keep only alignments involving these scaffolds
+alignments <- subset(alignments, query %in% query_scafs & reference %in% reference_scafs)
+
+#plot alinments
+par(mar = c(4,4,4,0), xpd=NA)
+plot.alignments.multi(alignments, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
+
+#Alternatively, we can simplify the alignment by identifying synetny blocks (adjacent alignemnts in the same orientation)
+synblocks <- get.synteny.blocks.multi(alignments)
+
+plot.alignments.multi(synblocks, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
+
+# We can manually change the orientation of the reference scaffolds
+# and the plotting function will automatically flip the query scaffolds to optimise the synteny
+
+reference_ori <- c("mxdp_9"="-")
+
+plot.alignments.multi(synblocks, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T,
+                      reference_ori=reference_ori)
+
+#or force the orientation by telling it not to reverse query scaffolds
+
+plot.alignments.multi(synblocks, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T,
+                      reference_ori=reference_ori, no_reverse=TRUE)
 
 ###############################################################################
 ############################  Diagonal dot plot  ##############################
 ###############################################################################
+# We need to import the functions in the asynt.R script.
+# You need to have the Intervals package installed on your system for this to work
+source("asynt.R")
 
 # We will start with a whole-genome diagnoal 'dot plot'
 
@@ -66,60 +135,3 @@ mtext(2, at=query_data$chrom_offset+query_data$chrom_len/2, text=substr(names(qu
 mtext(1, at = sum(ref_data$chrom_len)/2, text=expression(italic("Danaus plexippus")))
 mtext(2, at = sum(query_data$chrom_len)/2, text=expression(italic("Danaus chrysippus")))
 
-###############################################################################
-########################  single scaffold alignment plot  #####################
-###############################################################################
-
-source("asynt.R")
-
-#if we have a single genomic region we are interested in, we can visualise the alignments more diretcly
-# We again import the alignment data, but now we subset by scaffold to just the 
-# reference and query sequences we are interested in.
-
-alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
-
-alignments <- subset(alignments, Rlen >= 100 & query=="contig30.1" & reference == "mxdp_29")
-
-#and make the plot
-par(mar = c(2,0,2,0))
-plot.alignments(alignments)
-
-#we can make the plot look a bit more fancy by using sigmoid lines
-plot.alignments(alignments, sigmoid=TRUE)
-
-#focus in on a specific region by setting the first and last base in the reference and query
-plot.alignments(alignments, sigmoid=TRUE, Rfirst=1500000, Rlast = 1800000, Qfirst=1850000, Qlast=2150000)
-
-
-###############################################################################
-######################  multiple scaffold alignment plot  #####################
-###############################################################################
-
-source("asynt.R")
-
-# If we have multiple scaffolds making up a chromosome,
-# we can string them together, either automatically or manually
-
-#import alignments
-alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
-
-#Next we import load scaffold length data which is necessary to plot the scaffolds
-ref_data <- import.genome(fai_file="examples/dplex_mex.fa.fai")
-query_data <- import.genome(fai_file="examples/Dchry2.2.fa.fai")
-
-#now define the scaffolds we're interested in
-reference_scafs <- "mxdp_9"
-query_scafs <- c("contig4.1", "contig4.2")
-
-#keep only alignments involving these scaffolds
-alignments <- subset(alignments, query %in% query_scafs & reference %in% reference_scafs)
-
-#plot alinments
-par(mar = c(4,4,4,0), xpd=NA)
-plot.alignments.multi(alignments, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
-
-#Alternatively, we can simplify the alignment by identifying synetny blocks (adjacent alignemnts in the same orientation)
-synblocks <- get.synteny.blocks.multi(alignments)
-
-par(mfrow = c(1,1), mar = c(4,4,4,0), xpd=NA)
-plot.alignments.multi(synblocks, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
