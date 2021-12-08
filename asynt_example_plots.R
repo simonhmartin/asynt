@@ -5,12 +5,14 @@
 # You need to have the Intervals package installed on your system for this to work
 source("asynt.R")
 
-#if we have a single genomic region we are interested in, we can visualise the alignments more diretcly
-# We again import the alignment data, but now we subset by scaffold to just the 
-# reference and query sequences we are interested in.
-
+#if we have a single genomic region we are interested in, we can visualise the alignments diretcly
+# First import the alignment data
 alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
 
+# note that you could also have used an alignment generated using mummer
+# with the nucmer and show-coords tools), using import.nucmer()
+
+# Now we subset by scaffold to just the  reference and query sequences we are interested in.
 alignments <- subset(alignments, Rlen >= 100 & query=="contig30.1" & reference == "mxdp_29")
 
 #and make the plot
@@ -52,8 +54,23 @@ alignments <- subset(alignments, query %in% query_scafs & reference %in% referen
 par(mar = c(4,4,4,0), xpd=NA)
 plot.alignments.multi(alignments, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
 
+
+###############################################################################
+###############  multiple scaffold plot of synetny blocks  ####################
+###############################################################################
+
 #Alternatively, we can simplify the alignment by identifying synetny blocks (adjacent alignemnts in the same orientation)
-synblocks <- get.synteny.blocks.multi(alignments)
+synblocks <- get.synteny.blocks.multi(alignments, min_subblock_size=200)
+
+#PRO TIP:
+# You can make your syneeny blocks bigger and cleaner
+# by running this command iteratively with increasing minimum subblock size.
+# This will discard short alignment overlaps and small inversions and
+# thereby increase the size of inferred syntenic blocks.
+# Try this by uncommenting the lines below:
+
+# synblocks <- get.synteny.blocks.multi(synblocks, min_subblock_size=2000)
+# synblocks <- get.synteny.blocks.multi(synblocks, min_subblock_size=20000)
 
 plot.alignments.multi(synblocks, reference_lens=ref_data$seq_len, query_lens=query_data$seq_len, sigmoid=T)
 
@@ -84,7 +101,7 @@ source("asynt.R")
 alignments <- import.paf("examples/DplexMex_Dchry2.2_minimap2.asm20.paf.gz")
 
 #we can filter for only long alignments and long scaffolds, which is sometimes necessary when viewing things at a large scale
-alignments_5k <- subset(alignments, Rlen>= 5000)
+alignments_5k <- subset(alignments, Rlen>= 5000 & Qlen>= 5000)
 
 # We also need to import information about the assembly contig lengths
 # These muct be the reference and query genomes that you aligned
