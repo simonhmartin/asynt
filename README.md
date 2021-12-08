@@ -32,7 +32,7 @@ The algorithm has three steps:
 3. Adjacent sub-blocks that are in the same orientation and are below some threshold distance apart are merged to yield syntenic blocks.
 
 These three steps can be performed iteratively to first identify regions of fine-scale synteny and build these up into larger syntenic blocks (discarding short overlaps, small inversions etc).
-The nature of this approach means that you will get a different result depending on what you use as the reference. If possible, use a reference that represents the ancestral state', such that your query genome is being represented as a new arrangement of ancestral blocks.
+The nature of this approach means that you will get a different result depending on what you use as the reference. If possible, use a reference that represents the ancestral state, such that your query genome is being represented as a new arrangement of ancestral blocks.
 
 
 
