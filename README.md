@@ -9,6 +9,8 @@ See our [preprint](https://doi.org/10.1101/2021.12.06.471392) for examples of th
 
 ## How to use this code
 
+Make sure you have the R package "Intervals" installed.
+
 If you already have alignment coordinate files from minimap2 (recommended) or mummer (using nucmer and show-coords), you are ready to go.
 Open the script `asynt_example_plots.R` in an interactive R session (e.g. Rstudio) and work through it line by line to explore the kinds of plots you can make.
 
