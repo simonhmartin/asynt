@@ -24,7 +24,7 @@ Here is an example command for minimap2:
 
 ## How does asynt infer synteny blocks?
 
-There are some sofisticated tools that use probabilistic approaches for infering synetny blocks. This is not one of those.
+There are some sofisticated tools that use probabilistic approaches for infering synteny blocks. This is not one of those.
 
 The algorithm has three steps:
 1. Alignments are split into ‘sub-blocks’ that each correspond to a unique tract of the reference assembly.
