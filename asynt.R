@@ -12,17 +12,58 @@ library(intervals)
 ###############################################################################
 
 #paf is what minimap2 outputs
-import.paf <- function(file){
-    if (substr(file, nchar(file)-2, nchar(file)) == ".gz"){
-        paf <- read.table(text=system(paste("gunzip -c", file, " | cut -f 1-12"), intern=TRUE), as.is=T)
-        }
-    else paf <- read.table(text=system(paste("cut -f 1-12", file), intern=TRUE), as.is=TRUE)
+import.paf <- function(file, additional_fields=NULL){
+    #because paf from minimap2 can have variable numbers of culumns, we use scan and strsplit
+    paflines = scan(file, character(), sep="\n")
     
-    output <- data.frame(reference = paf[,6], Rstart = paf[,8]+1, Rend = paf[,9], Rlen = paf[,9] - paf[,8],
-                         query = paf[,1], Qstart = ifelse(paf[,5] == "+", paf[,3]+1, paf[,4]), Qend = ifelse(paf[,5] == "+", paf[,4], paf[,3]+1),
-                         Qlen = paf[,4] - paf[,3], strand= paf[,5], identity = 100*paf[,10]/paf[,11], MQ=paf[,12], stringsAsFactors=FALSE)
+    paflist = strsplit(paflines, split="\t")
+    
+    output <- data.frame(reference = sapply(paflist, function(line) line[6]),
+                         Rstart = as.numeric(sapply(paflist, function(line) line[8]))+1,
+                         Rend = as.numeric(sapply(paflist, function(line) line[9])),
+                         query = sapply(paflist, function(line) line[1]),
+                         Qstart =  sapply(paflist, function(line) ifelse(line[5] == "+", as.numeric(line[3])+1, as.numeric(line[4]))),
+                         Qend =  sapply(paflist, function(line) ifelse(line[5] == "+", as.numeric(line[4]), as.numeric(line[3])+1)),
+                         strand= sapply(paflist, function(line) line[5]),
+                         matches = as.numeric(sapply(paflist, function(line) line[10])),
+                         total = as.numeric(sapply(paflist, function(line) line[11])),
+                         MQ = as.numeric(sapply(paflist, function(line) line[12])),
+                         stringsAsFactors=FALSE)
+    
+    output$Rlen <- output$Rend - output$Rstart + 1
+    output$Qlen <- abs(output$Qend - output$Qstart) + 1
+    output$identity <- 100 * output$matches / output$total
+    
+#     output <- data.frame(reference = paf[,6], Rstart = paf[,8]+1, Rend = paf[,9], Rlen = paf[,9] - paf[,8],
+#                          query = paf[,1], Qstart = ifelse(paf[,5] == "+", paf[,3]+1, paf[,4]), Qend = ifelse(paf[,5] == "+", paf[,4], paf[,3]+1),
+#                          Qlen = paf[,4] - paf[,3], strand= paf[,5], identity = 100*paf[,10]/paf[,11], MQ=paf[,12], stringsAsFactors=FALSE)
+    
+    #if any additional values have been requested
+    for (f in additional_fields){
+        adlist <- lapply(paflist, function(line) parse_key_value(line[-(1:12)]))
+        output[,f] <- unlist(lapply(adlist, function(adfields) adfields[f]))
+        }
+    
     output
     }
+
+#function for parsing the key-value fields in a .paf file
+parse_key_value <- function(strings){
+    separated <- strsplit(strings, ":")
+    output <- lapply(separated, function(x) x[3])
+    types <- lapply(separated, function(x) x[2])
+    
+    names(output) <- lapply(separated, function(x) x[1])
+    names(types) <- lapply(separated, function(x) x[1])
+    
+    for (n in names(output)){
+        if (types[[n]] == "i" | types[[n]] == "f") mode(output[[n]]) <- "numeric"
+        }
+    
+    output
+    }
+    
+
 
 import.blast <- function(file){
     blast_results <- read.table(file, header = F, as.is=T)
@@ -434,7 +475,8 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
                                   edge_width=0.3, chrom_width=0.1, gap=0, reference_above=FALSE,
                                   cols = c("#0000ff", "#ff0000"), show_connectors=TRUE, show_outline=TRUE, sigmoid=FALSE,
                                   colour_by = "orientation", min_colour_value=NA, max_colour_value=NA,
-                                  lwd=NULL, show_contigs=TRUE, show_labels=TRUE, labels_angle=45, centre=TRUE, plot_length = NULL,
+                                  lwd=NULL, show_contigs=TRUE, show_labels=TRUE, angle_labels=TRUE, labels_cex=0.7, labels_offset=0.02,
+                                  centre=TRUE, plot_length = NULL,
                                   show_alignment_tracts=FALSE){
     
     ### sequences to include    
@@ -512,12 +554,23 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
         rect(query_offsets[queries]+1, 1, query_offsets[queries]+query_lens[queries], 1+chrom_width, border="gray40", col="gray90")
         
         if (show_labels == TRUE){
-            text(reference_offsets[references]+reference_lens[references]/2, -chrom_width-0.01,
+            if (angle_labels == TRUE){
+                angle=45
+                adj_ref=ifelse(reference_above==TRUE,0,1)
+                adj_qry=ifelse(reference_above==TRUE,1,0)
+                }
+            else {
+                angle=0
+                adj_ref=0.5
+                adj_qry=0.5
+                }
+            
+            text(reference_offsets[references]+reference_lens[references]/2, -chrom_width-labels_offset,
                  labels = ifelse(reference_ori[references] == "-", paste0(references,"*"), references),
-                 cex = 0.7, srt=labels_angle, adj=ifelse(reference_above==TRUE,0,1))
-            text(query_offsets[queries]+query_lens[queries]/2, 1+chrom_width+0.01,
+                 cex = labels_cex, srt=angle, adj=adj_ref)
+            text(query_offsets[queries]+query_lens[queries]/2, 1+chrom_width+labels_offset,
                  labels = ifelse(query_ori[queries] == "-", paste0(queries,"*"), queries),
-                 cex = 0.7, srt=labels_angle, adj=ifelse(reference_above==TRUE,1,0))
+                 cex = labels_cex, srt=angle, adj=adj_qry)
             }
         }
     
@@ -557,7 +610,7 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
 plot.alignments.diagonal <- function(alignments, reference_lens, query_lens, reference_ori=NULL, query_ori=NULL,
                                   only_show_aligned_seqs=TRUE, no_reverse=FALSE, no_reorder=FALSE,
                                   cols = c("#0000ff", "#ff0000"), colour_by = "orientation", min_colour_value=NA, max_colour_value=NA,
-                                  lwd=NULL, no_labels=FALSE, labels_angle=45, labels_cex=0.7, xmax=NULL, ymax=NULL){
+                                  lwd=NULL, no_labels=FALSE, angle_labels=TRUE, labels_cex=0.7, labels_offset=0, xmax=NULL, ymax=NULL){
     
     ### sequences to include    
     if (only_show_aligned_seqs == TRUE){
@@ -633,10 +686,23 @@ plot.alignments.diagonal <- function(alignments, reference_lens, query_lens, ref
     segments(0, c(query_offsets, querysum), refsum, c(query_offsets, querysum),  col="gray70")
     
     if (no_labels == FALSE){
-        text(reference_offsets[references]+reference_lens[references]/2, 0,
-             labels = ifelse(reference_ori[references]=="-", paste0(references,"*"), references), cex = labels_cex, srt=labels_angle, adj=c(1,1))
-        text(0,query_offsets[queries]+query_lens[queries]/2, cex = labels_cex, srt=labels_angle, adj=c(1,0),
-             labels = ifelse(query_ori[queries]=="-", paste0(queries,"*"), queries))
+        if (angle_labels == TRUE){
+            angle_ref=45
+            angle_qry=45
+            adj_ref=c(1,1)
+            adj_qry=c(1,0)
+            }
+        else {
+            angle_ref=0
+            angle_qry=90
+            adj_ref=NULL
+            adj_qry=NULL
+            }
+        
+        text(reference_offsets[references]+reference_lens[references]/2, 0-labels_offset,
+             labels = ifelse(reference_ori[references]=="-", paste0(references,"*"), references), cex = labels_cex, srt=angle_ref, adj=adj_ref)
+        text(0-labels_offset, query_offsets[queries]+query_lens[queries]/2, cex = labels_cex,
+             srt=angle_qry, adj=adj_qry, labels = ifelse(query_ori[queries]=="-", paste0(queries,"*"), queries))
         }
     
     if (colour_by == "identity") {
@@ -650,6 +716,10 @@ plot.alignments.diagonal <- function(alignments, reference_lens, query_lens, ref
         segments(alignments$Rstart_new[i], alignments$Qstart_new[i], alignments$Rend_new[i], alignments$Qend_new[i], col = col[i], lwd=lwd)
         }
     
+    output = list(queries=queries, query_ori=query_ori, query_offsets=query_offsets,
+                  referecnes=references, reference_ori=reference_ori, reference_offsets=reference_offsets)
+    
+    invisible(output)
     }
 
 ###############################################################################
@@ -804,6 +874,15 @@ order.by.template <- function(values, template){
     template_idx <- 1:length(template)
     names(template_idx) <- template
     order(template_idx[values])
+    }
+
+#asembly statistics
+get.N50_L50 <- function(contig_lengths){
+    lengths_sorted = sort(contig_lengths, decreasing=TRUE)
+    cs = cumsum(lengths_sorted)
+    L50 = which(cs >= sum(contig_lengths)/2)[1]
+    N50 = lengths_sorted[L50]
+    return(c(N50=as.numeric(N50), L50=as.numeric(L50)))
     }
 
 
