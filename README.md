@@ -5,7 +5,7 @@
 * Plot alignment tracts between a pair of genomes
 * Merge adjacent alignments into synteny 'blocks' for cleaner plots
 
-See our [preprint](https://doi.org/10.1101/2021.12.06.471392) for examples of the plots you can make (see Figures 1 and S1)
+See our [paper](https://doi.org/10.1098/rstb.2021.0207) for examples of the plots you can make (see Figures 1 and S1)
 
 ## How to use this code
 
