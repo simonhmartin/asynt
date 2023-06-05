@@ -406,7 +406,7 @@ get.unique.intervals <- function(ints){
 ### function for plotting alignments in a parallel arrangement
 plot.alignments <- function(alignments, Qfirst=NULL, Qlast=NULL, Rfirst=NULL, Rlast=NULL,
                             cols = c("#0000ff", "#ff0000"), colour_by = "orientation",
-                            gap=0, show_outline=TRUE, sigmoid=FALSE,
+                            gap=0, show_outline=TRUE, sigmoid=FALSE, tick_spacing=100000, las=2, cex.axis=0.6,
                             min_colour_value=NA, max_colour_value=NA, lwd=NULL){
     
     if(length(unique(alignments$query)) !=1 | length(unique(alignments$reference)) != 1){
@@ -458,10 +458,10 @@ plot.alignments <- function(alignments, Qfirst=NULL, Qlast=NULL, Rfirst=NULL, Rl
     mtext(text=alignments$query[1], side=3, at=(Qlast-Qfirst+1)/2,)
     mtext(text=alignments$reference[1], side=1, at=(Rlast-Rfirst+1)/2,)
     
-    axis(3, at = (1:plot_length)[which(Qfirst:Qlast %% 10000 == 0)],
-         labels = (Qfirst:Qlast)[which(Qfirst:Qlast %% 10000 == 0)], line = -3)
-    axis(1, at = (1:plot_length)[which(Rfirst:Rlast %% 10000 == 0)],
-         labels = (Rfirst:Rlast)[which(Rfirst:Rlast %% 10000 == 0)], line = -3)
+    axis(3, at = (1:plot_length)[which(Qfirst:Qlast %% tick_spacing == 0)],
+         labels = (Qfirst:Qlast)[which(Qfirst:Qlast %% tick_spacing == 0)], line = -3, las=las, cex.axis=cex.axis)
+    axis(1, at = (1:plot_length)[which(Rfirst:Rlast %% tick_spacing == 0)],
+         labels = (Rfirst:Rlast)[which(Rfirst:Rlast %% tick_spacing == 0)], line = -3, las=las, cex.axis=cex.axis)
     }
 
 
