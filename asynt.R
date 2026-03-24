@@ -216,6 +216,39 @@ get.alignment.depth <- function(alignments, plot=FALSE){
     }
 
 
+#function to get the longest single sequence for each sequence in the reference
+get_longest_aligned_pairs <- function(alignments, minlen = 1){
+    output <- list()
+    ref_names_ <- sort(unique(alignments$reference))
+    for (ref_name in ref_names_){
+        sub <- subset(alignments, reference == ref_name)
+        query_aln_lens <- get.query.aln.len(sub)
+        if (max(query_aln_lens) > minlen){
+            best <- names(which.max(query_aln_lens))
+            output[[ref_name]] <- subset(sub, query == best)
+            }
+        }
+    output
+    }
+
+
+#function to get the longest set of aligned query sequence for each sequence in the reference
+get_best_aligned_for_each_ref <- function(alignments, query_lens, minlen, minprop){
+    output <- list()
+    ref_names_ <- sort(unique(alignments$reference))
+    for (ref_name in ref_names_){
+        sub <- subset(alignments, reference == ref_name)
+        query_aln_lens <- get.query.aln.len(sub)
+        query_aln_props <- get.query.aln.prop(sub, query_lens=query_lens)
+        if (max(query_aln_lens) >= minlen & max(query_aln_lens) >= minprop){
+            suitable <- names(which(query_aln_lens >= minlen & query_aln_props >= minprop))
+            output[[ref_name]] <- subset(sub, query %in% suitable)
+            }
+        }
+    output
+    }
+
+
 ###############################################################################
 ################ Functions for infering syntenic blocks #######################
 ###############################################################################
@@ -406,7 +439,8 @@ get.unique.intervals <- function(ints){
 ### function for plotting alignments in a parallel arrangement
 plot.alignments <- function(alignments, Qfirst=NULL, Qlast=NULL, Rfirst=NULL, Rlast=NULL,
                             cols = c("#0000ff", "#ff0000"), colour_by = "orientation",
-                            gap=0, show_outline=TRUE, sigmoid=FALSE, tick_spacing=100000, las=2, cex.axis=0.6,
+                            gap=0, show_outline=TRUE, semitransparent=TRUE, sigmoid=FALSE,
+                            tick_spacing=100000, las=2, cex.axis=0.6,
                             min_colour_value=NA, max_colour_value=NA, lwd=NULL){
     
     if(length(unique(alignments$query)) !=1 | length(unique(alignments$reference)) != 1){
@@ -432,12 +466,13 @@ plot.alignments <- function(alignments, Qfirst=NULL, Qlast=NULL, Rfirst=NULL, Rl
     
     if (colour_by == "identity"){
         border = colorRampPalette(cols)(10)[cut(c(alignments$identity, min_colour_value, max_colour_value), 10)]
-        col = paste0(border,"50")
         }
     else{
         border = ifelse(sign(Rends - Rstarts) == sign(Qends - Qstarts), cols[1], cols[2])
-        col = paste0(border,"50")
         }
+    
+    if (semitransparent==TRUE) col <- paste0(border,"50")
+    else col <- border
     
     for (i in 1:nrow(alignments)){
         if (sigmoid == FALSE){
@@ -473,11 +508,12 @@ plot.alignments <- function(alignments, Qfirst=NULL, Qlast=NULL, Rfirst=NULL, Rl
 plot.alignments.multi <- function(alignments, reference_lens, query_lens, reference_ori=NULL, query_ori=NULL,
                                   only_show_aligned_seqs=TRUE, no_reverse=FALSE, no_reorder=FALSE,
                                   edge_width=0.3, chrom_width=0.1, gap=0, reference_above=FALSE,
-                                  cols = c("#0000ff", "#ff0000"), show_connectors=TRUE, show_outline=TRUE, sigmoid=FALSE,
+                                  cols = c("#0000ff", "#ff0000"), show_connectors=TRUE, show_outline=TRUE, semitransparent=TRUE, sigmoid=FALSE,
                                   colour_by = "orientation", min_colour_value=NA, max_colour_value=NA,
-                                  lwd=NULL, show_contigs=TRUE, show_labels=TRUE, angle_labels=TRUE, labels_cex=0.7, labels_offset=0.02,
+                                  lwd=NULL, show_contigs=TRUE, chrom_col=NA, show_labels=TRUE,
+                                  angle_labels=TRUE, labels_cex=0.7, labels_offset=0.02, labels_angle=45,
                                   centre=TRUE, plot_length = NULL,
-                                  show_alignment_tracts=FALSE){
+                                  show_alignment_tracts=FALSE, show_identity=FALSE, show_dv=FALSE){
     
     ### sequences to include    
     if (only_show_aligned_seqs == TRUE){
@@ -547,15 +583,15 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
     if (reference_above == TRUE) ylim <- c(1+edge_width,-edge_width)
     else ylim <- c(-edge_width,1+edge_width)
     
-    plot(0,cex = 0, xlim = c(1, plot_length), ylim = ylim, xlab = "", ylab = "", bty = "n", yaxt="n", xaxt="n")
+    plot(0,cex = 0, xlim = c(1, plot_length), ylim = ylim, xlab = "", ylab = "", bty = "n", yaxt="n", xaxt="n",yaxs="i", xaxs="i")
     
     if (show_contigs == TRUE){
-        rect(reference_offsets[references]+1, 0, reference_offsets[references]+reference_lens[references], -chrom_width, border="gray40", col="gray90")
-        rect(query_offsets[queries]+1, 1, query_offsets[queries]+query_lens[queries], 1+chrom_width, border="gray40", col="gray90")
+        rect(reference_offsets[references]+1, 0, reference_offsets[references]+reference_lens[references], -chrom_width, border="gray40", col=chrom_col)
+        rect(query_offsets[queries]+1, 1, query_offsets[queries]+query_lens[queries], 1+chrom_width, border="gray40", col=chrom_col)
         
         if (show_labels == TRUE){
             if (angle_labels == TRUE){
-                angle=45
+                angle=labels_angle
                 adj_ref=ifelse(reference_above==TRUE,0,1)
                 adj_qry=ifelse(reference_above==TRUE,1,0)
                 }
@@ -574,14 +610,16 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
             }
         }
     
+    
     if (colour_by == "identity"){
-        border = colorRampPalette(cols)(10)[cut(c(alignments$identity, min_colour_value, max_colour_value), 10)]
-        col = paste0(border,"50")
+        border = colorRampPalette(rev(cols))(10)[cut(c(alignments$identity, min_colour_value, max_colour_value), 10)]
         }
     else{
         border = ifelse(sign(alignments$Rend_new-alignments$Rstart_new) == sign(alignments$Qend_new-alignments$Qstart_new), cols[1], cols[2])
-        col = paste0(border,"50")
         }
+    
+    if (semitransparent==TRUE) col <- paste0(border,"50")
+    else col <- border
     
     if (show_connectors==TRUE){
         for (i in 1:nrow(alignments)){
@@ -598,9 +636,22 @@ plot.alignments.multi <- function(alignments, reference_lens, query_lens, refere
             }
         }
     
-    if (show_alignment_tracts == TRUE){
-        rect(alignments$Qstart_new, 1, alignments$Qend_new, 1+chrom_width, col = border, border=NA)
-        rect(alignments$Rstart_new, 0, alignments$Rend_new, -chrom_width, col = cols[1], border=NA)
+    if (show_identity == TRUE | show_alignment_tracts == TRUE | show_dv == TRUE){
+        tract_height <- 1
+        tract_col <- border
+        if (show_identity == TRUE) {
+            tract_height <- chrom_width * alignments$identity / 100
+            shade <- alignments$identity / 100
+            tract_col <- rgb(shade,shade,shade)
+            }
+        if (show_dv == TRUE) {
+            tract_height <- chrom_width * alignments$dv * 10
+            tract_height[tract_height > chrom_width] <- chrom_width 
+            shade <- 1-(tract_height/chrom_width)
+            tract_col <- rgb(shade,shade,shade)
+            }
+        rect(alignments$Qstart_new, 1, alignments$Qend_new, 1+tract_height, col = tract_col, border=tract_col)
+        rect(alignments$Rstart_new, 0, alignments$Rend_new, -tract_height, col = tract_col, border=tract_col)
         }
     
     }
@@ -706,7 +757,7 @@ plot.alignments.diagonal <- function(alignments, reference_lens, query_lens, ref
         }
     
     if (colour_by == "identity") {
-        col = colorRampPalette(cols)(10)[cut(c(alignments$identity, min_colour_value, max_colour_value), 10)]
+        col = colorRampPalette(rev(cols))(10)[cut(c(alignments$identity, min_colour_value, max_colour_value), 10)]
         }
     else{
         col = ifelse(sign(alignments$Rend_new-alignments$Rstart_new) == sign(alignments$Qend_new-alignments$Qstart_new), cols[1], cols[2])
